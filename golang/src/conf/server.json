@@ -1,0 +1,7 @@
+{
+    "ServerName": "Test01",
+    "ServiceType": "DEV",
+
+    "TCPBind": ":9090"
+
+}

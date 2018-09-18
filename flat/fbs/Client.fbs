@@ -1,0 +1,101 @@
+namespace packet.Client;
+
+//변경시 서버도 같이 
+
+struct Vec3 {
+  x:float;
+  y:float;
+  z:float;
+}
+
+struct Qua {
+  x:float;
+  y:float;
+  z:float;
+  w:float;
+}
+
+struct User {
+    num: int;
+    pos:Vec3;
+    rot:Qua;
+    time: float;
+}
+
+struct Shell {
+    num: int;
+    pos:Vec3;
+    rot:Qua;
+    force:float;
+    time: float;
+}
+
+
+
+
+table CSLogin {
+    user: User;
+}
+
+table CSMove {
+    user: User;
+}
+
+table CSShoot {
+    shell: Shell;
+}
+
+enum CSPacketType: int {
+	Login = 1,
+    Move,
+    Shoot,
+
+    //100000부터 ss시작 
+}
+
+root_type CSLogin;
+root_type CSMove;
+
+
+table SCLogin {
+    error: int;
+    users: [User];
+}
+
+table SCEnter {
+    user: User;
+}
+
+table SCEnterOther {
+    user: User;
+}
+
+table SCLeaveOther {
+    accountID: int;
+}
+table SCMove {
+    user: User;
+}
+
+table SCShoot {
+    shell: Shell;
+}
+
+enum SCPacketType: int {
+	Login = 1,
+    Enter,
+    EnterOther,
+    LeaveOther,
+    Move,
+    Shoot ,
+}
+
+root_type SCLogin;
+root_type SCEnter;
+root_type SCEnterOther;
+root_type SCLeaveOther;
+root_type SCMove;
+root_type SCShoot;
+
+
+

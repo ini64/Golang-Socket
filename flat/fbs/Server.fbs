@@ -1,0 +1,101 @@
+namespace packet.Server;
+
+struct Vec3 {
+  x:float;
+  y:float;
+  z:float;
+}
+
+struct Qua {
+  x:float;
+  y:float;
+  z:float;
+  w:float;
+}
+
+struct User {
+    num: int;
+    pos:Vec3;
+    rot:Qua;
+    time: float;
+}
+
+struct Shell {
+    num: int;
+    pos:Vec3;
+    rot:Qua;
+    force:float;
+    time: float;
+}
+
+table SSEnter {
+    accountID: int;
+    pos:Vec3;
+    rot:Qua;
+    time: float;
+}
+
+table SSEnterAck {
+    error: int;
+    users: [User];
+}
+
+table SSLeave {
+    accountID: int;
+}
+// table SSLeaveAck {
+// }
+
+table SSClose {
+}
+
+table SSEnterOther {
+    User: User;
+}
+
+table SSLeaveOther {
+    accountID: int;
+}
+
+table SSMove {
+    User: User;
+}
+
+table SSMoveAck {
+    User: User;
+}
+
+table CSShoot {
+    shell: Shell;
+}
+
+table CSShootAck {
+    shell: Shell;
+}
+
+
+enum SSPacketType: int {
+	Enter = 100000,
+    EnterAck,
+    Leave,
+    //LeaveAck,
+    Close,
+    EnterOther,
+    LeaveOther,
+    Move,
+    MoveAck,
+    Shoot,
+    ShootAck,
+}
+
+root_type SSEnter;
+root_type SSEnterAck;
+root_type SSLeave;
+//root_type SSLeaveAck;
+root_type SSClose;
+root_type SSEnterOther;
+root_type SSLeaveOther;
+root_type SSMove;
+root_type SSMoveAck;
+root_type CSShoot;
+root_type CSShootAck;
