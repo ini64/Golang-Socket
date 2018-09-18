@@ -156,7 +156,7 @@ func (d *UserManagerData) PacketParser() {
 	}
 }
 
-//SSLoginAck 로그인 처리
+//SSLoginAck 로그인 처리.
 func (d *UserManagerData) SSLoginAck() {
 	ssLoginAck := sp.GetRootAsSSEnterAck(d.Packet.Buffer.Bytes(), 0)
 	d.Write.Add(d.SCLogin(d.Builder, ssLoginAck))
