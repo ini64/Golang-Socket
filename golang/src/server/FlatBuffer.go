@@ -120,7 +120,7 @@ func (d *UserManagerData) SCLogin(builder *flatbuffers.Builder, ssEnterAck *sp.S
 	return GetPacket(cp.SCPacketTypeLogin, builder)
 }
 
-//SSEnterOther 다른유저 입장
+//SSEnterOther 다른유저 퇴장
 func (d *GameManagerData) SSEnterOther(builder *flatbuffers.Builder, user *User) *Packet {
 	builder.Reset()
 	sp.SSEnterOtherStart(builder)

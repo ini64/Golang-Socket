@@ -125,6 +125,7 @@ func (e *EndPoint) UserManager(connectChannel chan bool, conn *net.TCPConn) {
 				Write:     write,
 			}
 			d.PacketParser()
+			PutChannelData(data)
 		}
 	}
 }
