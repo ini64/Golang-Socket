@@ -1,5 +1,4 @@
-# Golang-Socket
-Google Go를 이용한 소켓 서버입니다.
+# Google Go를 이용한 소켓 서버입니다.
 
 프로토콜을 Google의 플랫버퍼를 사용합니다.
 
