@@ -1,4 +1,7 @@
 # Google Go를 이용한 소켓 서버입니다.
 
-https://bitbucket.org/ini64/socket/src/master/ 으로 갔다가 오픈할 수 있을때 올께요 
+기본 프레임 워크 작성 완료
 
+방식이 쉐어드 포인트 방식으로 
+
+데이터를 공유하는데 방식이 좀 구림
