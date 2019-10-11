@@ -1,50 +1,81 @@
 package server
 
 import (
-	"encoding/json"
+	"common"
+	"conf"
 	"fmt"
 	"net"
-	"os"
 	"sync"
+	"time"
 )
 
 //EndPoint 전체 정보
 type EndPoint struct {
-	TCPConn *net.TCPListener
-	Conf
-	GameManagerChannel Channel
+	conf.Conf
+	TCPConn        *net.TCPListener
+	UDPConn        *net.UDPConn
+	SessionChannel *common.Channel
+
+	TCPWritePool *common.ChannelPool
+	TCPReadPool  *common.ChannelPool
+	UDPWritePool *common.ChannelPool
+
+	WG sync.WaitGroup
+
+	UDPRecv   int64
+	TCPRecv   int64
+	TCPSend   int64
+	UDPSend   int64
+	UserCount int64
+}
+
+//GetRecvTimeOut 설정
+func (e *EndPoint) GetRecvTimeOut() time.Time {
+	return time.Now().Add(time.Duration(e.Conf.ReadTimeOutSeconds) * time.Second)
+}
+
+//GetSendTimeOut 설정
+func (e *EndPoint) GetSendTimeOut() time.Time {
+	return time.Now().Add(time.Duration(e.Conf.WriteTimeOutSeconds) * time.Second)
 }
 
 //NewEndPoint 서버 기본 정보 가져오기
 func NewEndPoint(fileName string) *EndPoint {
 
 	endPoint := &EndPoint{
-		GameManagerChannel: make(Channel, 1024),
+		SessionChannel: common.MakeChannel(nil, 0, 1024),
+		TCPWritePool:   common.MakeChannelPool(),
+		TCPReadPool:    common.MakeChannelPool(),
+		UDPWritePool:   common.MakeChannelPool(),
 	}
 
-	file, _ := os.Open(fileName)
-	decoder := json.NewDecoder(file)
-	err := decoder.Decode(&endPoint.Conf)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "not found .conf file:", err.Error())
-		return nil
+	if !endPoint.Load(fileName) {
+		fmt.Println(fileName + "not found")
+	}
+
+	switch endPoint.LogLevel {
+	case "ERROR":
+		LogLevel = LogError
+	case "INFO":
+		LogLevel = LogInfo
+	case "DEBUG":
+		LogLevel = LogDebug
+	case "TRACE":
+		LogLevel = LogTrace
 	}
 
 	return endPoint
 }
 
 //Main 서버 몸체
-func Main(conf string, version string) {
-	var wg sync.WaitGroup
-
+func Main(conf string, version string) *EndPoint {
 	e := NewEndPoint(conf)
 
-	wg.Add(1)
-	go e.TCPListener(&wg)
+	e.WG.Add(3)
+	go e.TCPListener(&e.WG)
+	go e.UDPListener(&e.WG)
+	go e.SessionManager(&e.WG)
 
-	wg.Add(1)
-	go e.GameManager(&wg)
-
-	wg.Wait()
+	return e
 
 }

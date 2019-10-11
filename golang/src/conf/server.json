@@ -1,7 +1,14 @@
 {
     "ServerName": "Test01",
     "ServiceType": "DEV",
+    "TCPBind": ":8080",
+    "UDPBind": ":8080",
 
-    "TCPBind": ":9090"
+    "LogLevel": "TRACE",
+
+    "ClientChannelSize": 32,
+
+    "ReadTimeOutSeconds": 30,
+    "WriteTimeOutSeconds": 30
 
 }

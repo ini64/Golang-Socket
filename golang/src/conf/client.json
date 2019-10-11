@@ -1,0 +1,7 @@
+{
+    "TCPConnect": "0.0.0.0:8080",
+    "UDPConnect": "0.0.0.0:8080",
+    "ConcurrentAccess": 1,
+    "Total": 1
+
+}

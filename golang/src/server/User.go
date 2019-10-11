@@ -22,12 +22,20 @@ type User struct {
 	AccountID int32
 	Pos       Vec3
 	Rot       Qua
-	Time      float32
 }
 
 //Reset 초기화
 func (u *User) Reset() {
+	u.AccountID = 0
 
+	u.Pos.x = 0
+	u.Pos.y = 0
+	u.Pos.z = 0
+
+	u.Rot.x = 0
+	u.Rot.y = 0
+	u.Rot.z = 0
+	u.Rot.w = 0
 }
 
 //UserPool 네트워크 전송용 풀
@@ -39,14 +47,13 @@ var UserPool = sync.Pool{
 
 //GetUser 얻기
 func GetUser() *User {
-	data := UserPool.Get().(*User)
-	return data
+	return UserPool.Get().(*User)
 }
 
 //PutUser 반납
-func PutUser(d *User) {
-	if d != nil {
-		d.Reset()
-		UserPool.Put(d)
+func PutUser(u *User) {
+	if u != nil {
+		u.Reset()
+		UserPool.Put(u)
 	}
 }

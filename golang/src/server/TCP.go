@@ -1,24 +1,24 @@
 package server
 
 import (
+	"common"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 //TCPListener 메세지 대기
-func (e *EndPoint) TCPListener(wg *sync.WaitGroup) {
-	//wg.Add(1)
+func (e *EndPoint) TCPListener(end *sync.WaitGroup) {
 	defer func() {
-		wg.Done()
+		end.Done()
 	}()
 
 	var err error
-	fmt.Println(e.TCPBind)
-	listener, err := net.Listen("tcp", e.TCPBind)
+	fmt.Println(e.Conf.TCPBind)
+	listener, err := net.Listen("tcp", e.Conf.TCPBind)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -27,130 +27,161 @@ func (e *EndPoint) TCPListener(wg *sync.WaitGroup) {
 
 	tcpConn, ok := listener.(*net.TCPListener)
 	if !ok {
-		fmt.Println("change tcp connect not ok")
+		fmt.Println("connect change failed")
 		return
 	}
 
 	e.TCPConn = tcpConn
 
-	connect := make(chan bool, 256)
+	slowlyConnection := make(chan bool, 256)
 
 	for {
-		e.TCPListenWorker(connect)
+		if !e.TCPListenWorker(slowlyConnection) {
+			return
+		}
 	}
 }
 
 //TCPListenWorker 개별 작업자
-func (e *EndPoint) TCPListenWorker(connect chan bool) {
+func (e *EndPoint) TCPListenWorker(slowlyConnection chan bool) bool {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("RunTime Panic", err)
+			fmt.Println("TCPListenWorker", "run time panic", string(common.Stack()), err)
 		}
 	}()
 
 	conn, err := e.TCPConn.AcceptTCP()
 	if err != nil {
 		fmt.Println(err.Error())
-		return
+		return false
 	}
 
 	err = conn.SetNoDelay(true)
 	if err != nil {
 		fmt.Println(err.Error())
 		conn.Close()
-		return
+		return false
 	}
 
 	err = conn.SetKeepAlive(true)
 	if err != nil {
 		fmt.Println(err.Error())
 		conn.Close()
-		return
+		return false
 	}
 
 	err = conn.SetKeepAlivePeriod(time.Second * 4)
 	if err != nil {
 		fmt.Println(err.Error())
 		conn.Close()
-		return
+		return false
 	}
 
-	connect <- true
-	go e.UserManager(connect, conn)
-}
+	slowlyConnection <- true
+	go e.ClientManager(conn, slowlyConnection)
 
-//GetRecvTimeOut 타임 아웃 시간 얻기
-func GetRecvTimeOut() time.Time {
-	return time.Now().Add(time.Duration(360) * time.Second)
-}
-
-//GetSendTimeOut 타임 아웃 시간 얻기
-func GetSendTimeOut() time.Time {
-	return time.Now().Add(time.Duration(360) * time.Second)
+	return true
 }
 
 //ReadTCP IO작업
-func (e *EndPoint) ReadTCP(conn *net.TCPConn) (*Packet, bool) {
+func (e *EndPoint) ReadTCP(conn *net.TCPConn, buffer []byte) *common.Packet {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("RunTime Panic", err)
+			fmt.Println("ReadTCP", "run time panic", string(common.Stack()), err)
 		}
 	}()
 
-	var buffer [8]byte
+	var seek int
+	conn.SetReadDeadline(e.GetRecvTimeOut())
 
-	conn.SetReadDeadline(GetRecvTimeOut())
-	headerSize, err := io.ReadFull(conn, buffer[:])
-
-	if err != nil || headerSize != 8 {
-		fmt.Println(err.Error())
-		return nil, false
+	for seek < 8 {
+		size, err := conn.Read(buffer[seek:8])
+		if err != nil {
+			return nil
+		}
+		seek += size
 	}
 
-	size := int64(binary.LittleEndian.Uint32(buffer[0:]))
-	packetType := binary.LittleEndian.Uint32(buffer[4:])
-
-	packet := GetPacket(packetType, nil)
-	conn.SetReadDeadline(GetRecvTimeOut())
-	bodySize, err := io.CopyN(&packet.Buffer, conn, size)
-
-	if err != nil || bodySize != size {
-		fmt.Println(err.Error())
-		return packet, false
+	if seek != 8 {
+		return nil
 	}
 
-	return packet, true
+	size := int64(binary.LittleEndian.Uint32(buffer[0:4]))
+
+	if int(size) >= len(buffer)-8 {
+		return nil
+	}
+
+	packetType := binary.LittleEndian.Uint32(buffer[4:8])
+
+	for i := 0; i < 8; i++ {
+		buffer[i] = 0
+	}
+
+	seek = 0
+
+	for seek < int(size) {
+		conn.SetReadDeadline(e.GetRecvTimeOut())
+		rSize, err := conn.Read(buffer[seek:size])
+		if err != nil {
+			return nil
+		}
+		seek += rSize
+	}
+
+	if seek != int(size) {
+		return nil
+	}
+
+	packet := common.GetPacket()
+	packet.PacketType = packetType
+	packet.Buffer.Write(buffer)
+
+	atomic.AddInt64(&e.TCPRecv, 1)
+
+	return packet
 }
 
 //WriteTCP 버퍼에 내용 쓰기
-func WriteTCP(conn *net.TCPConn, packet *Packet) bool {
+func (e *EndPoint) WriteTCP(conn *net.TCPConn, buffer []byte, packet *common.Packet) bool {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("run tim panic", err)
-		}
-		if packet != nil {
-			PutPacket(packet)
+			fmt.Println("WriteTCP", "run time panic", string(common.Stack()), err)
 		}
 	}()
 
 	size := packet.Buffer.Len()
+	sendSize := size + 8
 
-	var temp [8]byte
+	binary.LittleEndian.PutUint32(buffer[0:4], uint32(size))
+	binary.LittleEndian.PutUint32(buffer[4:8], uint32(packet.PacketType))
 
-	binary.LittleEndian.PutUint32(temp[0:], uint32(size))
-	binary.LittleEndian.PutUint32(temp[4:], uint32(packet.PacketType))
+	copy(buffer[8:], packet.Buffer.Bytes())
 
-	buffer := GetBuffer()
-	defer PutBuffer(buffer)
-	buffer.Write(temp[:])
-	buffer.Write(packet.Buffer.Bytes())
+	seek := int(0)
+	for seek < sendSize {
 
-	sendSize := int64(size) + 8
+		writeSize, err := conn.Write(buffer[0:8])
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+		seek += writeSize
 
-	bodySize, err := io.CopyN(conn, buffer, sendSize)
-	if bodySize != sendSize || err != nil {
-		fmt.Println(err.Error())
+		writeSize, err = conn.Write(buffer[seek:sendSize])
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+		seek += writeSize
+	}
+
+	if seek != sendSize {
+		fmt.Println("invalid send size", seek, sendSize)
 		return false
 	}
+
+	atomic.AddInt64(&e.TCPSend, 1)
+
 	return true
 }

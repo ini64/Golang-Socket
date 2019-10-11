@@ -15,8 +15,8 @@
             "program": "${workspaceRoot}/main.go",
             "env": {},
             "args": [
-                "battle",
-                "conf/server.json"
+                "test",
+                "conf/client.json"
             ],
             "showLog": false
         }
